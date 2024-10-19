@@ -1,7 +1,5 @@
-require('dotenv').config(); // Vergessen Sie nicht, dies hinzuzufügen, um die .env-Datei zu laden
+require('dotenv').config();
 const OpenAI = require('openai');
-
-// const { language = 'de', gptModel = 'gpt-4-turbo-preview', text } = req.body;
 
 async function generateSummary(gptModel, text) {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -44,7 +42,6 @@ Schreibe den Text dabei so, dass er für eine HTML-Mail gut formatiert ist. Fass
             ],
             model: gptModel,
         });
-        // console.log('summary', summary.choices[0].message);
         return JSON.parse(summary.choices[0].message.content);
     } catch (error) {
         console.log(error);
