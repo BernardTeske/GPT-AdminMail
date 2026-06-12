@@ -1,107 +1,140 @@
 # GPT-AdminMail
 
 **Version**: 1.0.0  
-**License**: MIT
+**Lizenz**: MIT
 
-## Table of Contents
+Node.js-Anwendung, die ungelesene E-Mails per IMAP abruft, mit OpenAI zusammenfasst und das Ergebnis per SMTP versendet. Der Container startet die Zusammenfassung **täglich um 08:00 Uhr** (Zeitzone `Europe/Berlin`) über PM2-Cron.
 
-- [GPT-AdminMail](#gpt-adminmail)
-  - [Table of Contents](#table-of-contents)
-  - [Description](#description)
-  - [Features](#features)
-  - [Installation](#installation)
-  - [Usage](#usage)
-  - [Environment Variables](#environment-variables)
-  - [Docker Setup](#docker-setup)
-  - [Dependencies](#dependencies)
-  - [License](#license)
+## Inhaltsverzeichnis
 
-## Description
-
-**GPT-AdminMail** is a Node.js application that automates email operations. It is designed to send status mails, summarize emails, and interact with the OpenAI API. The project uses Docker for easy deployment and ensures a streamlined environment for handling email-related tasks, including sending and summarizing messages using natural language processing.
+- [Features](#features)
+- [Umgebungsvariablen](#umgebungsvariablen)
+- [Deployment mit GHCR-Image](#deployment-mit-ghcr-image)
+  - [Voraussetzungen](#voraussetzungen)
+  - [Mittwald-Server (linux/amd64)](#mittwald-server-linuxamd64)
+  - [Raspberry Pi 4 (linux/arm64)](#raspberry-pi-4-linuxarm64)
+  - [Image manuell aktualisieren](#image-manuell-aktualisieren)
+- [Lokale Entwicklung](#lokale-entwicklung)
+- [CI/CD](#cicd)
+- [Abhängigkeiten](#abhängigkeiten)
+- [Lizenz](#lizenz)
 
 ## Features
 
-- Send status emails using SMTP.
-- Summarize received emails.
-- Environment variables for flexible email configuration.
-- Dockerized for ease of setup and portability.
+- Ungelesene E-Mails per IMAP abrufen und zusammenfassen (OpenAI)
+- Zusammenfassung per SMTP versenden
+- Täglicher automatischer Lauf um 08:00 Uhr via PM2-Cron
+- Multi-Arch-Docker-Image für amd64 (Mittwald) und arm64 (Raspberry Pi 4)
 
-## Installation
+## Umgebungsvariablen
 
-To run the project locally, follow these steps:
+Kopiere `.env.example` nach `.env` und trage die Werte ein. **Keine Secrets ins Repository committen.**
 
-1. Clone the repository:
+| Variable | Beschreibung |
+|----------|--------------|
+| `EMAIL_USER` | IMAP-Benutzername |
+| `EMAIL_PASSWORD` | IMAP-Passwort |
+| `EMAIL_HOST` | IMAP-Server |
+| `EMAIL_PORT` | IMAP-Port (Standard: `993`) |
+| `EMAIL_TLS` | TLS aktivieren (`true`/`false`) |
+| `OPENAI_API_KEY` | OpenAI API-Schlüssel |
+| `SMTP_HOST` | SMTP-Server |
+| `SMTP_PORT` | SMTP-Port (Standard: `587`) |
+| `SMTP_SECURE` | SMTP TLS (`true`/`false`) |
+| `SMTP_USER` | SMTP-Benutzername |
+| `SMTP_PASS` | SMTP-Passwort |
+| `SMTP_FROM` | Absender-Adresse |
+| `MAILTO` | Empfänger der Zusammenfassung |
+
+## Deployment mit GHCR-Image
+
+Das produktionsfertige Image wird bei jedem Push auf `main` automatisch nach GitHub Container Registry (GHCR) gebaut und veröffentlicht:
+
+```text
+ghcr.io/bernardteske/gpt-adminmail:latest
+```
+
+### Voraussetzungen
+
+- Docker und Docker Compose auf dem Zielsystem
+- Zugriff auf das GHCR-Image (öffentliches Package oder GitHub-Login für private Packages)
+- `.env`-Datei mit allen Variablen aus `.env.example`
+
+### Mittwald-Server (linux/amd64)
+
+1. Repository klonen oder nur `docker-compose.yml` und `.env.example` auf den Server kopieren
+2. `.env` anlegen:
 
    ```bash
-   git clone https://github.com/yourusername/GPT-AdminMail.git
+   cp .env.example .env
+   # Werte in .env eintragen
    ```
 
-2. Navigate to the project directory:
+3. Container starten:
 
    ```bash
-   cd GPT-AdminMail
+   docker compose pull
+   docker compose up -d
    ```
 
-3. Install the required dependencies:
+4. Logs prüfen:
 
    ```bash
-   npm install
+   docker compose logs -f gpt-adminmail
    ```
 
-## Usage
+Der Container läuft dauerhaft; PM2 startet `index.js` **täglich um 08:00 Uhr** (Europe/Berlin).
 
-After installation, you can run the project using Node.js:
+### Raspberry Pi 4 (linux/arm64)
+
+Vorgehen identisch zum Mittwald-Server. Docker zieht automatisch das passende arm64-Image.
 
 ```bash
+cp .env.example .env
+# .env ausfüllen
+docker compose pull
+docker compose up -d
+```
+
+### Image manuell aktualisieren
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## Lokale Entwicklung
+
+```bash
+git clone https://github.com/BernardTeske/GPT-AdminMail.git
+cd GPT-AdminMail
+cp .env.example .env
+# .env ausfüllen
+yarn install
 node index.js
 ```
 
-This will start the application based on the configurations provided in the environment variables.
-
-## Environment Variables
-
-The project uses environment variables for email configuration. Ensure to set these variables before running the application. You can either set them directly in your environment or create a `.env` file with the following variables:
+Zum lokalen Image-Build (ohne GHCR):
 
 ```bash
-EMAIL_USER=<your-email-username>
-EMAIL_PASSWORD=<your-email-password>
-EMAIL_HOST=<your-email-host>
-EMAIL_PORT=<your-email-port>
-EMAIL_TLS=<true-or-false>
-SMTP_HOST=<your-smtp-host>
-SMTP_PORT=<your-smtp-port>
-SMTP_SECURE=<true-or-false>
-SMTP_USER=<your-smtp-username>
-SMTP_PASS=<your-smtp-password>
-SMTP_FROM=<your-smtp-from-email>
-MAILTO=<recipient-email-address>
+docker build -t gpt-adminmail:local .
+docker run --env-file .env gpt-adminmail:local
 ```
 
-## Docker Setup
+## CI/CD
 
-You can easily run this project using Docker. The `docker-compose.yml` file is included for setting up the necessary services.
+Der Workflow `.github/workflows/docker-publish.yml` baut bei Push auf `main` ein Multi-Arch-Image (`linux/amd64`, `linux/arm64`) und pusht es nach `ghcr.io/bernardteske/gpt-adminmail:latest`. Authentifizierung erfolgt über `GITHUB_TOKEN` (`packages: write`).
 
-1. Build and run the Docker container:
+## Abhängigkeiten
 
-   ```bash
-   docker-compose up --build
-   ```
+- **dotenv** — Umgebungsvariablen laden
+- **imap-simple** — IMAP-Zugriff
+- **mailparser** — E-Mail-Parsing
+- **nodemailer** — SMTP-Versand
+- **openai** — OpenAI API
 
-   This will use the configurations defined in the `docker-compose.yml` file, which pulls the environment variables from the host machine.
+Details siehe [package.json](./package.json).
 
-## Dependencies
+## Lizenz
 
-The following dependencies are used in this project:
-
-- **dotenv**: To load environment variables from a `.env` file.
-- **imap-simple**: For handling IMAP email operations.
-- **mailparser**: To parse incoming emails.
-- **nodemailer**: For sending emails via SMTP.
-- **openai**: To interact with the OpenAI API.
-
-For more details, refer to the [package.json](./package.json) file.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for more information.
+MIT — siehe [LICENSE](./LICENSE).
