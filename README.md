@@ -45,6 +45,7 @@ Kopiere `.env.example` nach `.env` und trage die Werte ein. **Keine Secrets ins 
 | `SMTP_PASS` | SMTP-Passwort |
 | `SMTP_FROM` | Absender-Adresse |
 | `MAILTO` | Empfänger der Zusammenfassung |
+| `SUMMARY_PROMPT_PATH` | Pfad zur Prompt-Datei für die OpenAI-Zusammenfassung (optional; Standard: `./prompts/summary-prompt.txt` lokal bzw. `/app/prompts/summary-prompt.txt` im Container) |
 
 ## Deployment mit GHCR-Image
 
