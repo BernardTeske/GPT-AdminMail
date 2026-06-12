@@ -14,6 +14,7 @@ Node.js-Anwendung, die ungelesene E-Mails per IMAP abruft, mit OpenAI zusammenfa
   - [Mittwald-Server (linux/amd64)](#mittwald-server-linuxamd64)
   - [Raspberry Pi 4 (linux/arm64)](#raspberry-pi-4-linuxarm64)
   - [Image manuell aktualisieren](#image-manuell-aktualisieren)
+  - [Summarization-Prompt anpassen](#summarization-prompt-anpassen)
 - [Lokale Entwicklung](#lokale-entwicklung)
 - [CI/CD](#cicd)
 - [Abhängigkeiten](#abhängigkeiten)
@@ -62,6 +63,7 @@ ghcr.io/bernardteske/gpt-adminmail:latest
 - Docker und Docker Compose auf dem Zielsystem
 - Zugriff auf das GHCR-Image (öffentliches Package oder GitHub-Login für private Packages)
 - `.env`-Datei mit allen Variablen aus `.env.example`
+- `prompts/summary-prompt.txt` auf dem Host (beim Klonen des Repos enthalten; sonst aus dem Repository kopieren). Fehlt die Datei, legt Docker beim Mount ggf. ein leeres Verzeichnis an — der Container startet dann nicht korrekt.
 
 ### Mittwald-Server (linux/amd64)
 
@@ -104,6 +106,44 @@ docker compose up -d
 ```bash
 docker compose pull
 docker compose up -d
+```
+
+### Summarization-Prompt anpassen
+
+Der OpenAI-Prompt für die E-Mail-Zusammenfassung liegt in `prompts/summary-prompt.txt`. `docker-compose.yml` mountet diese Datei read-only nach `/app/prompts/summary-prompt.txt` im Container — der Inhalt aus dem Image wird dabei überschrieben.
+
+**Standard-Workflow (kein Image-Rebuild nötig):**
+
+1. Prompt auf dem Host bearbeiten:
+
+   ```bash
+   nano prompts/summary-prompt.txt
+   ```
+
+2. Container neu starten, damit die App die geänderte Datei beim nächsten Lauf einliest:
+
+   ```bash
+   docker compose restart gpt-adminmail
+   ```
+
+Ohne Volume-Mount (z. B. bei `docker run` ohne `-v`) nutzt die App den im Image gebündelten Default unter `/app/prompts/summary-prompt.txt`.
+
+**Eigener Prompt-Pfad auf dem Host**
+
+Wenn die Prompt-Datei an einem anderen Ort liegt, passe den Volume-Mount in `docker-compose.yml` an:
+
+```yaml
+volumes:
+  - /pfad/auf/dem/host/mein-prompt.txt:/app/prompts/summary-prompt.txt:ro
+```
+
+Alternativ kann ein anderer Container-Pfad über `SUMMARY_PROMPT_PATH` gesetzt werden (in `.env` oder unter `environment` in `docker-compose.yml`):
+
+```yaml
+environment:
+  SUMMARY_PROMPT_PATH: /app/prompts/custom-prompt.txt
+volumes:
+  - /pfad/auf/dem/host/mein-prompt.txt:/app/prompts/custom-prompt.txt:ro
 ```
 
 ## Lokale Entwicklung
