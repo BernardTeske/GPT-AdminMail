@@ -1,10 +1,36 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const OpenAI = require('openai');
 
+const DEFAULT_PROMPT_PATH = path.join(__dirname, 'prompts', 'summary-prompt.txt');
+
+function loadSummaryPrompt() {
+    const promptPath = process.env.SUMMARY_PROMPT_PATH || DEFAULT_PROMPT_PATH;
+
+    if (!fs.existsSync(promptPath)) {
+        const message = `Summarization prompt file not found: ${promptPath}`;
+        console.error(message);
+        throw new Error(message);
+    }
+
+    const prompt = fs.readFileSync(promptPath, 'utf8');
+
+    if (!prompt.trim()) {
+        const message = `Summarization prompt file is empty: ${promptPath}`;
+        console.error(message);
+        throw new Error(message);
+    }
+
+    return prompt;
+}
+
 async function generateSummary(gptModel, text) {
+    const systemPrompt = loadSummaryPrompt();
+
     const apiKey = process.env.OPENAI_API_KEY;
     const openai = new OpenAI({
-        apiKey: apiKey, 
+        apiKey: apiKey,
     });
 
     try {
@@ -14,26 +40,7 @@ async function generateSummary(gptModel, text) {
             messages: [
                 {
                     role: "system",
-                    content: `Du bekommst mehrere E-Mails. Bitte fasse die E-Mails alle zusammen zu einem Report. Die E-Mails sind in folgendem Format:
-
-                    [
-                      {
-                        "subject": "Ein Betreff",
-                        "text": "Hier steht\n\nEin Text!"
-                      },
-                      {
-                        "subject": "Ein anderer Betreff",
-                        "text": "Hier steht\n\nEin anderer Text!"
-                      },
-                      ...
-                    ]
-
-es handelt sich dabei um E-Mails die verschiedene Admin-Infos enthalten. Es geht dabei um verschiedene Statusmeldungen, warnungen etc. Die Ausgabe machst du bitte als JSON im Format:
-                    
-{"subject": "Betreff der zur Zusammenfassung aller Meldungen Passt", "text": "Text der zusammengefassten IT-Lage und mit Hinweisen bei Handlungsbedarf"}
-
-Schreibe den Text dabei so, dass er für eine HTML-Mail gut formatiert ist. Fasse alle Mails zu EINEM Text zusammen. Und es soll eine Management-Summary sein. Die Zusammenfassung des Gesamtstatus soll zu Beginn sein. Schön kurz. Beurteile die Lage. Mehr Detailierte weiter unten. Ich will auf den ersten Blick sehen können wie die Lage ist. Ich bin der System-Admin. Es soll sein als ob ein Mitarbeiter mir einfach Erstattet ob alles Ok ist. Ich Ich will später den Text in einer Mail versenden können. Danke!
-                    `
+                    content: systemPrompt
                 },
                 {
                     role: "user",
