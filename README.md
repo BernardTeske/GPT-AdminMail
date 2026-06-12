@@ -46,7 +46,9 @@ Kopiere `.env.example` nach `.env` und trage die Werte ein. **Keine Secrets ins 
 | `SMTP_PASS` | SMTP-Passwort |
 | `SMTP_FROM` | Absender-Adresse |
 | `MAILTO` | Empfänger der Zusammenfassung |
-| `SUMMARY_PROMPT_PATH` | Pfad zur Prompt-Datei für die OpenAI-Zusammenfassung (optional; Standard: `./prompts/summary-prompt.txt` lokal bzw. `/app/prompts/summary-prompt.txt` im Container) |
+| `SUMMARY_PROMPT_PATH` | Optional. Pfad zur Summarization-Prompt-Datei. Default: `./prompts/summary-prompt.txt` (lokal) bzw. `/app/prompts/summary-prompt.txt` (Container). Fehlende oder leere Datei → Fehler beim Lauf. |
+
+Der Summarization-Prompt liegt in [`prompts/summary-prompt.txt`](./prompts/summary-prompt.txt) und kann ohne Image-Rebuild angepasst werden (per Volume-Mount im Container; Container-Neustart reicht).
 
 ## Deployment mit GHCR-Image
 
