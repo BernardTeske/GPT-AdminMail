@@ -3,7 +3,7 @@
 **Version**: 1.0.0  
 **Lizenz**: MIT
 
-Node.js-Anwendung, die ungelesene E-Mails per IMAP abruft, mit OpenAI zusammenfasst und das Ergebnis per SMTP versendet. Der Container startet die Zusammenfassung **täglich um 08:00 Uhr** (Zeitzone `Europe/Berlin`) über PM2-Cron.
+Node.js-Anwendung, die ungelesene E-Mails per IMAP abruft, mit OpenAI zusammenfasst und das Ergebnis per SMTP versendet. Im Container wartet ein Scheduler und führt die Zusammenfassung **täglich um 08:00 Uhr** (Zeitzone `Europe/Berlin`) aus — beim Container-Start geht keine Mail raus.
 
 ## Inhaltsverzeichnis
 
@@ -24,7 +24,7 @@ Node.js-Anwendung, die ungelesene E-Mails per IMAP abruft, mit OpenAI zusammenfa
 
 - Ungelesene E-Mails per IMAP abrufen und zusammenfassen (OpenAI)
 - Zusammenfassung per SMTP versenden
-- Täglicher automatischer Lauf um 08:00 Uhr via PM2-Cron
+- Täglicher automatischer Lauf um 08:00 Uhr via internen Scheduler (kein Versand beim Container-Start)
 - Multi-Arch-Docker-Image für amd64 (Mittwald) und arm64 (Raspberry Pi 4)
 
 ## Umgebungsvariablen
@@ -47,6 +47,8 @@ Kopiere `.env.example` nach `.env` und trage die Werte ein. **Keine Secrets ins 
 | `SMTP_FROM` | Absender-Adresse |
 | `MAILTO` | Empfänger der Zusammenfassung |
 | `SUMMARY_PROMPT_PATH` | Optional. Pfad zur Summarization-Prompt-Datei. Default: `./prompts/summary-prompt.txt` (lokal) bzw. `/app/prompts/summary-prompt.txt` (Container). Fehlende oder leere Datei → Fehler beim Lauf. |
+| `SUMMARY_HOUR` | Optional. Stunde des täglichen Laufs (0–23). Default: `8`. |
+| `SUMMARY_MINUTE` | Optional. Minute des täglichen Laufs (0–59). Default: `0`. |
 
 Der Summarization-Prompt liegt in [`prompts/summary-prompt.txt`](./prompts/summary-prompt.txt) und kann ohne Image-Rebuild angepasst werden (per Volume-Mount im Container; Container-Neustart reicht).
 
@@ -88,7 +90,7 @@ ghcr.io/bernardteske/gpt-adminmail:latest
    docker compose logs -f gpt-adminmail
    ```
 
-Der Container läuft dauerhaft; PM2 startet `index.js` **täglich um 08:00 Uhr** (Europe/Berlin).
+Der Container läuft dauerhaft; `scheduler.js` wartet und startet die Zusammenfassung **täglich um 08:00 Uhr** (Europe/Berlin). Beim Start bzw. Neustart des Containers wird keine Mail versendet.
 
 ### Raspberry Pi 4 (linux/arm64)
 
@@ -154,7 +156,10 @@ cd GPT-AdminMail
 cp .env.example .env
 # .env ausfüllen
 yarn install
+# Einmaliger Lauf (sofort):
 node index.js
+# Geplanter Betrieb wie im Container (wartet bis 08:00, kein Sofort-Versand):
+node scheduler.js
 ```
 
 Zum lokalen Image-Build (ohne GHCR):

@@ -1,12 +1,11 @@
 module.exports = {
   apps: [{
     name: 'gpt-adminmail',
-    script: './index.js',
+    script: './scheduler.js',
     instances: 1,
-    autorestart: false,
-    cron_restart: '0 8 * * *',
+    autorestart: true,
     watch: false,
-    max_restarts: 1,
-    restart_delay: 0,
+    max_restarts: 10,
+    restart_delay: 5000,
   }]
 };

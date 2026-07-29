@@ -1,10 +1,8 @@
 require('dotenv').config();
 const imap = require('imap-simple');
 const { simpleParser } = require('mailparser');
-const OpenAI = require('openai');
 const generateSummary = require('./summarize');
 const sentStatusMail = require('./sentStatusMail');
-
 
 const config = {
   imap: {
@@ -17,49 +15,47 @@ const config = {
   }
 };
 
-imap.connect(config).then(async (connection) => {
-  await connection.openBox('INBOX');
-
-  const searchCriteria = ['UNSEEN'];
-  const fetchOptions = {
-    bodies: [''],
-    markSeen: true
-  };
-
-  const messages = await connection.search(searchCriteria, fetchOptions);
-  const emails = [];
-
-  for (let message of messages) {
-    const all = message.parts.find(part => part.which === '');
-    const id = message.attributes.uid;
-    const idHeader = 'Imap-Id: ' + id + '\r\n';
-
-    const mail = await simpleParser(idHeader + all.body);
-
-    emails.push({
-      subject: mail.subject,
-      text: mail.text
-    });
-  }
-
-  
-
+async function runSummary() {
+  const connection = await imap.connect(config);
   try {
-    try {
-      summary = await generateSummary('gpt-4o', JSON.stringify(emails));
-    } catch (error) {
-      console.log('ERROR', error);
+    await connection.openBox('INBOX');
+
+    const searchCriteria = ['UNSEEN'];
+    const fetchOptions = {
+      bodies: [''],
+      markSeen: true
+    };
+
+    const messages = await connection.search(searchCriteria, fetchOptions);
+    const emails = [];
+
+    for (let message of messages) {
+      const all = message.parts.find(part => part.which === '');
+      const id = message.attributes.uid;
+      const idHeader = 'Imap-Id: ' + id + '\r\n';
+
+      const mail = await simpleParser(idHeader + all.body);
+
+      emails.push({
+        subject: mail.subject,
+        text: mail.text
+      });
     }
 
-    sentStatusMail(process.env.MAILTO, summary);
+    const summary = await generateSummary('gpt-4o', JSON.stringify(emails));
+    await sentStatusMail(process.env.MAILTO, summary);
 
-  } catch (error) {
-    console.log('ERROR', error);
+    console.log('E-Mails wurden zusammengefasst und gesendet.');
+  } finally {
+    connection.end();
   }
+}
 
-  console.log('E-Mails wurden zusammengefasst undd gesendet.');
+if (require.main === module) {
+  runSummary().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
 
-  connection.end();
-}).catch(err => {
-  console.error(err);
-});
+module.exports = runSummary;
